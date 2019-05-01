@@ -212,6 +212,10 @@ module ActiveSupport
         notifier.subscribe(*args, &block)
       end
 
+      def subscribe_monotonic(*args, &block)
+        notifier.subscribe_monotonic(*args, &block)
+      end
+
       def subscribed(callback, *args, &block)
         subscriber = subscribe(*args, &callback)
         yield

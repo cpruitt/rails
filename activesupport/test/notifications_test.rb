@@ -60,6 +60,52 @@ module Notifications
     ensure
       ActiveSupport::Notifications.notifier = old_notifier
     end
+
+    def test_subscribe_via_top_level_api_provides_float_values_for_start_end_to_block
+      old_notifier = ActiveSupport::Notifications.notifier
+      ActiveSupport::Notifications.notifier = ActiveSupport::Notifications::Fanout.new
+
+      recorded_start = nil
+      recorded_finish = nil
+      ActiveSupport::Notifications.subscribe("foo") do |name, start, finish, id, payload|
+        recorded_start, recorded_finish = start, finish
+      end
+
+      ActiveSupport::Notifications.instrument("foo") do
+        Object.new
+      end
+
+      assert recorded_start
+      assert recorded_finish
+
+      assert_instance_of Time, recorded_start
+      assert_instance_of Time, recorded_finish
+    ensure
+      ActiveSupport::Notifications.notifier = old_notifier
+    end
+
+    def test_subscribe_monotonic_via_top_level_api_provides_float_values_for_start_end_to_block
+      old_notifier = ActiveSupport::Notifications.notifier
+      ActiveSupport::Notifications.notifier = ActiveSupport::Notifications::Fanout.new
+
+      recorded_start = nil
+      recorded_finish = nil
+      ActiveSupport::Notifications.subscribe_monotonic("foo") do |name, start, finish, id, payload|
+        recorded_start, recorded_finish = start, finish
+      end
+
+      ActiveSupport::Notifications.instrument("foo") do
+        Object.new
+      end
+
+      assert recorded_start
+      assert recorded_finish
+
+      assert_instance_of Float, recorded_start
+      assert_instance_of Float, recorded_finish
+    ensure
+      ActiveSupport::Notifications.notifier = old_notifier
+    end
   end
 
   class SubscribedTest < TestCase
@@ -324,9 +370,9 @@ module Notifications
     end
 
     def test_event_is_parent_based_on_children
-      time = Concurrent.monotonic_time
+      time = Time.utc(2019, 01, 01, 0, 0, 1)
 
-      parent    = event(:foo, Concurrent.monotonic_time, Concurrent.monotonic_time + 100, random_id, {})
+      parent    = event(:foo, Time.utc(2019), Time.utc(2019) + 100, random_id, {})
       child     = event(:foo, time, time + 10, random_id, {})
       not_child = event(:foo, time, time + 100, random_id, {})
 
