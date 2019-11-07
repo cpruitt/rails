@@ -20,7 +20,11 @@ module ActiveSupport
 
         callstack ||= caller_locations(2)
         deprecation_message(callstack, message).tap do |m|
-          behavior.each { |b| b.call(m, callstack, deprecation_horizon, gem_name) }
+          if deprecation_disallowed?(message)
+            disallowed_behavior.each { |b| b.call(m, callstack, deprecation_horizon, gem_name) }
+          else
+            behavior.each { |b| b.call(m, callstack, deprecation_horizon, gem_name) }
+          end
         end
       end
 

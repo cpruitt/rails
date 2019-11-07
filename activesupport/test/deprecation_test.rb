@@ -477,6 +477,137 @@ class DeprecationTest < ActiveSupport::TestCase
     assert_deprecated { @dtc.g }
   end
 
+  def test_config_disallows_no_deprecations_by_default
+    assert_equal ActiveSupport::Deprecation.disallowed_deprecations, []
+  end
+
+  def test_allows_configuration_of_disallowed_deprecations
+    resetting_disallowed_deprecation_config do
+      config_warnings = ["unsafe_method is going away"]
+      ActiveSupport::Deprecation.disallowed_deprecations = config_warnings
+      assert_equal ActiveSupport::Deprecation.disallowed_deprecations, config_warnings
+    end
+  end
+
+  def test_no_disallowed_behavior_with_no_disallowed_messages
+    resetting_disallowed_deprecation_config do
+      ActiveSupport::Deprecation.disallowed_behavior = :raise
+      @dtc.none
+      @dtc.partially
+    end
+  end
+
+  def test_disallowed_behavior_does_not_apply_to_allowed_messages
+    resetting_disallowed_deprecation_config do
+      ActiveSupport::Deprecation.disallowed_behavior = :raise
+      ActiveSupport::Deprecation.disallowed_deprecations = ["foo=nil"]
+
+      @dtc.none
+    end
+  end
+
+  def test_disallowed_behavior_when_disallowed_message_configured_with_substring
+    resetting_disallowed_deprecation_config do
+      ActiveSupport::Deprecation.disallowed_behavior = :raise
+      ActiveSupport::Deprecation.disallowed_deprecations = ["foo=nil"]
+
+      e = assert_raise ActiveSupport::DeprecationException do
+        @dtc.partially
+      end
+
+      message = "DEPRECATION WARNING: calling with foo=nil is out"
+      assert_match message, e.message
+    end
+  end
+
+  def test_disallowed_behavior_when_disallowed_message_configured_with_symbol_treated_as_substring
+    resetting_disallowed_deprecation_config do
+      ActiveSupport::Deprecation.disallowed_behavior = :raise
+      ActiveSupport::Deprecation.disallowed_deprecations = [:foo]
+
+      e = assert_raise ActiveSupport::DeprecationException do
+        @dtc.partially
+      end
+
+      message = "DEPRECATION WARNING: calling with foo=nil is out"
+      assert_match message, e.message
+    end
+  end
+
+  def test_disallowed_behavior_when_disallowed_message_configured_with_regular_expression
+    resetting_disallowed_deprecation_config do
+      ActiveSupport::Deprecation.disallowed_behavior = :raise
+      ActiveSupport::Deprecation.disallowed_deprecations = [/none|one*/]
+
+      e = assert_raise ActiveSupport::DeprecationException do
+        @dtc.none
+      end
+
+      message = "none is deprecated"
+      assert_match message, e.message
+
+      e = assert_raise ActiveSupport::DeprecationException do
+        @dtc.one
+      end
+
+      message = "one is deprecated"
+      assert_match message, e.message
+    end
+  end
+
+  def test_disallowed_behavior_when_disallowed_message_configured_with_scalar_symbol_all
+    resetting_disallowed_deprecation_config do
+      allowed_message = nil
+      disallowed_message = nil
+
+      ActiveSupport::Deprecation.behavior = [
+        lambda { |msg, callstack, horizon, gem| allowed_message = msg }
+      ]
+
+      ActiveSupport::Deprecation.disallowed_behavior = [
+        lambda { |msg, callstack, horizon, gem| disallowed_message = msg }
+      ]
+
+      ActiveSupport::Deprecation.disallowed_deprecations = :all
+
+      @dtc.partially
+      assert_nil allowed_message
+      assert_match(/foo=nil/, disallowed_message)
+
+      allowed_message = nil
+      disallowed_message = nil
+      @dtc.none
+      assert_nil allowed_message
+      assert_match(/none is deprecated/, disallowed_message)
+    end
+  end
+
+  def test_different_behaviors_for_allowed_and_disallowed_messages
+    resetting_disallowed_deprecation_config do
+      @a, @b, @c, @d = nil, nil, nil, nil
+
+      ActiveSupport::Deprecation.behavior = [
+        lambda { |msg, callstack, horizon, gem| @a = msg },
+        lambda { |msg, callstack| @b = msg },
+      ]
+
+      ActiveSupport::Deprecation.disallowed_behavior = [
+        lambda { |msg, callstack, horizon, gem| @c = msg },
+        lambda { |msg, callstack| @d = msg },
+      ]
+
+      ActiveSupport::Deprecation.disallowed_deprecations = ["foo=nil"]
+
+      @dtc.partially
+      @dtc.none
+
+      assert_match(/none is deprecated/, @a)
+      assert_match(/none is deprecated/, @b)
+      assert_match(/foo=nil/, @c)
+      assert_match(/foo=nil/, @d)
+    end
+  end
+
   private
     def deprecator_with_messages
       klass = Class.new(ActiveSupport::Deprecation)
@@ -486,5 +617,14 @@ class DeprecationTest < ActiveSupport::TestCase
         @messages ||= []
       end
       deprecator
+    end
+
+    def resetting_disallowed_deprecation_config
+      original_deprecations = ActiveSupport::Deprecation.disallowed_deprecations
+      original_behaviors = ActiveSupport::Deprecation.disallowed_behavior
+      yield
+    ensure
+      ActiveSupport::Deprecation.disallowed_deprecations = original_deprecations
+      ActiveSupport::Deprecation.disallowed_behavior = original_behaviors
     end
 end
