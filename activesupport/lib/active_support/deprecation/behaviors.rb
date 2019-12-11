@@ -98,7 +98,7 @@ module ActiveSupport
       end
 
       # Sets the behavior for disallowed deprecations (those configured by
-      # ActiveSupport::Deprecation.disallowed_deprecations=) to the specified
+      # ActiveSupport::Deprecation.disallowed_warnings=) to the specified
       # value. As with +behavior=+, this can be a single value, array, or an
       # object that responds to +call+.
       def disallowed_behavior=(behavior)

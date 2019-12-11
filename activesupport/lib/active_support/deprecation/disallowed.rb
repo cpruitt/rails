@@ -14,17 +14,17 @@ module ActiveSupport
       # Deprecations matching a substring or regular expression will be handled
       # using the configured +ActiveSupport::Deprecation.disallowed_behavior+
       # rather than +ActiveSupport::Deprecation.behavior+
-      attr_writer :disallowed_deprecations
+      attr_writer :disallowed_warnings
 
       # Returns the configured criteria used to identify deprecation messages
       # which should be treated as disallowed.
-      def disallowed_deprecations
-        @disallowed_deprecations ||= []
+      def disallowed_warnings
+        @disallowed_warnings ||= []
       end
 
       private
         def deprecation_disallowed?(message)
-          disallowed = ActiveSupport::Deprecation.disallowed_deprecations
+          disallowed = ActiveSupport::Deprecation.disallowed_warnings
           return true if disallowed == :all
           disallowed.any? do |rule|
             case rule
